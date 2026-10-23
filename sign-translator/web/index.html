@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Human AI Sign Avatar</title>
+    <style>
+      :root {
+        --bg: #09111f;
+        --panel: rgba(15, 23, 42, 0.82);
+        --card: rgba(17, 24, 39, 0.9);
+        --accent: #66d9ef;
+        --accent-2: #a78bfa;
+        --text: #eef6ff;
+        --soft: #93c5fd;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: radial-gradient(circle at top, #14243d 0%, #09111f 38%, #050b14 100%);
+        color: var(--text);
+        font-family: Arial, sans-serif;
+      }
+
+      .app {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 22px 60px rgba(0, 0, 0, 0.35);
+      }
+
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 18px 22px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 1.5rem;
+      }
+
+      .viewer-wrap {
+        position: relative;
+        height: 560px;
+        background: linear-gradient(180deg, rgba(18, 32, 52, 0.9), rgba(9, 17, 31, 0.9));
+      }
+
+      #viewer {
+        width: 100%;
+        height: 100%;
+      }
+
+      .drop-hint {
+        position: absolute;
+        inset: 18px 18px auto auto;
+        padding: 9px 12px;
+        border: 1px dashed rgba(147, 197, 253, 0.55);
+        border-radius: 10px;
+        color: var(--soft);
+        background: rgba(9, 17, 31, 0.65);
+        font-size: 0.82rem;
+        pointer-events: none;
+      }
+
+      .viewer-wrap.dragging {
+        outline: 3px solid rgba(102, 217, 239, 0.8);
+        outline-offset: -3px;
+      }
+
+      .controls {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 18px 20px 22px;
+      }
+
+      input, button {
+        border: none;
+        border-radius: 12px;
+        font-size: 1rem;
+      }
+
+      input {
+        flex: 1;
+        padding: 14px 16px;
+        background: rgba(15, 118, 110, 0.12);
+        color: var(--text);
+        border: 1px solid rgba(104, 211, 145, 0.3);
+      }
+
+      button {
+        padding: 14px 20px;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2));
+        color: #06131e;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 8px 22px rgba(102, 217, 239, 0.3);
+      }
+
+      .upload-button {
+        padding: 14px 16px;
+        border: 1px solid rgba(167, 139, 250, 0.45);
+        border-radius: 12px;
+        color: var(--text);
+        cursor: pointer;
+        white-space: nowrap;
+      }
+
+      .upload-button input {
+        display: none;
+      }
+
+      .status {
+        padding: 0 20px 18px;
+        color: var(--soft);
+        min-height: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div class="panel">
+        <div class="header">
+          <h1>AI Sign Language Avatar</h1>
+        </div>
+
+        <div class="viewer-wrap">
+          <div id="viewer"></div>
+          <div class="drop-hint">Drop a licensed .vrm avatar here</div>
+        </div>
+
+        <div class="controls">
+          <input id="textInput" value="HELLO" aria-label="Text to sign" />
+          <button id="playButton" type="button">Play sign</button>
+          <label class="upload-button">
+            Load 3D avatar
+            <input id="avatarInput" type="file" accept=".vrm" />
+          </label>
+        </div>
+
+        <div id="status" class="status">Loading sign poses...</div>
+      </div>
+    </div>
+
+    <script type="module">
+      import * as THREE from 'https://esm.sh/three@0.160.0';
+      import { GLTFLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js?deps=three@0.160.0';
+      import { VRMLoaderPlugin } from 'https://esm.sh/@pixiv/three-vrm@3.4.1?deps=three@0.160.0';
+
+      const status = document.getElementById('status');
+      const textInput = document.getElementById('textInput');
+      const playButton = document.getElementById('playButton');
+      const avatarInput = document.getElementById('avatarInput');
+      const viewer = document.getElementById('viewer');
+
+      let poses = {};
+      let currentPose = [];
+      let targetPose = [];
+      let renderLoop = null;
+      let loadedAvatar = null;
+      let loadedAvatarBones = new Map();
+      let previousFrameTime = performance.now();
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x09111f);
+      scene.fog = new THREE.Fog(0x09111f, 8, 18);
+
+      const camera = new THREE.PerspectiveCamera(36, viewer.clientWidth / viewer.clientHeight, 0.1, 1000);
+      camera.position.set(0, 1.5, 7.5);
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(viewer.clientWidth, viewer.clientHeight);
+      viewer.appendChild(renderer.domElement);
+
+      const hemiLight = new THREE.HemisphereLight(0xdfefff, 0x12213a, 1.6);
+      scene.add(hemiLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1.3);
+      dirLight.position.set(4, 8, 5);
+      scene.add(dirLight);
+
+      const floor = new THREE.Mesh(
+        new THREE.CircleGeometry(8, 64),
+        new THREE.MeshStandardMaterial({ color: 0x1b2a3d, roughness: 1, metalness: 0.05 })
+      );
+      floor.rotation.x = -Math.PI / 2;
+      floor.position.y = -2.5;
+      scene.add(floor);
+
+      const avatar = new THREE.Group();
+      scene.add(avatar);
+
+      const gltfLoader = new GLTFLoader();
+      gltfLoader.register((parser) => new VRMLoaderPlugin(parser));
+
+      const skinMaterial = new THREE.MeshStandardMaterial({ color: 0xf2c8a7, roughness: 0.8, metalness: 0.1 });
+      const clothMaterial = new THREE.MeshStandardMaterial({ color: 0x4f46e5, roughness: 0.8, metalness: 0.15 });
+      const darkMaterial = new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.9, metalness: 0.1 });
+      const accentMaterial = new THREE.MeshStandardMaterial({ color: 0x7dd3fc, roughness: 0.75, metalness: 0.2 });
+
+      const bodyGroup = new THREE.Group();
+      avatar.add(bodyGroup);
+
+      const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.7, 2.1, 10, 18), clothMaterial);
+      torso.position.y = 0.25;
+      torso.scale.set(1.05, 1.12, 0.92);
+      bodyGroup.add(torso);
+
+      const shoulders = new THREE.Mesh(new THREE.SphereGeometry(0.85, 22, 22), clothMaterial);
+      shoulders.scale.set(0.95, 0.65, 1.0);
+      shoulders.position.y = 1.05;
+      bodyGroup.add(shoulders);
+
+      const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.2, 0.35, 18), skinMaterial);
+      neck.position.y = 1.7;
+      bodyGroup.add(neck);
+
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.55, 32, 32), skinMaterial);
+      head.position.y = 2.5;
+      head.scale.set(1.05, 1.08, 1.0);
+      bodyGroup.add(head);
+
+      const hair = new THREE.Mesh(new THREE.SphereGeometry(0.58, 32, 32), new THREE.MeshStandardMaterial({ color: 0x2d1b12, roughness: 0.95, metalness: 0.05 }));
+      hair.position.set(0, 2.73, -0.02);
+      hair.scale.set(1.05, 0.78, 1.02);
+      bodyGroup.add(hair);
+
+      const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.065, 14, 14), new THREE.MeshStandardMaterial({ color: 0x18181b, roughness: 0.7 }));
+      leftEye.position.set(-0.15, 2.52, 0.45);
+      head.add(leftEye);
+
+      const rightEye = leftEye.clone();
+      rightEye.position.x = 0.15;
+      head.add(rightEye);
+
+      const nose = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.18, 12), skinMaterial);
+      nose.rotation.x = Math.PI / 2;
+      nose.position.set(0, 2.38, 0.48);
+      head.add(nose);
+
+      const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.018, 8, 20, Math.PI), new THREE.MeshStandardMaterial({ color: 0xa1455b, roughness: 0.6 }));
+      mouth.rotation.z = Math.PI;
+      mouth.position.set(0, 2.17, 0.49);
+      head.add(mouth);
+
+      const leftEar = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 12), skinMaterial);
+      leftEar.position.set(-0.54, 2.5, 0);
+      head.add(leftEar);
+
+      const rightEar = leftEar.clone();
+      rightEar.position.x = 0.54;
+      head.add(rightEar);
+
+      const pelvis = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.52, 0.7, 18), darkMaterial);
+      pelvis.position.y = -1.05;
+      bodyGroup.add(pelvis);
+
+      const leftLegPivot = new THREE.Group();
+      leftLegPivot.position.set(-0.28, -1.45, 0);
+      bodyGroup.add(leftLegPivot);
+      const leftThigh = new THREE.Mesh(new THREE.CapsuleGeometry(0.21, 1.45, 8, 14), darkMaterial);
+      leftThigh.position.y = -0.9;
+      leftLegPivot.add(leftThigh);
+      const leftShin = new THREE.Mesh(new THREE.CapsuleGeometry(0.17, 1.15, 8, 12), darkMaterial);
+      leftShin.position.y = -2.2;
+      leftLegPivot.add(leftShin);
+      const leftFoot = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.18, 0.72), new THREE.MeshStandardMaterial({ color: 0x202938, roughness: 0.95 }));
+      leftFoot.position.set(0.04, -2.9, 0.16);
+      leftLegPivot.add(leftFoot);
+
+      const rightLegPivot = leftLegPivot.clone();
+      rightLegPivot.position.x = 0.28;
+      bodyGroup.add(rightLegPivot);
+
+      const leftArmPivot = new THREE.Group();
+      leftArmPivot.position.set(-1.0, 1.25, 0);
+      bodyGroup.add(leftArmPivot);
+      const leftUpperArm = new THREE.Mesh(new THREE.CapsuleGeometry(0.18, 1.2, 8, 12), skinMaterial);
+      leftUpperArm.rotation.z = -0.7;
+      leftUpperArm.position.y = -0.62;
+      leftArmPivot.add(leftUpperArm);
+
+      const leftForearmPivot = new THREE.Group();
+      leftForearmPivot.position.set(0, -1.2, 0);
+      leftArmPivot.add(leftForearmPivot);
+      const leftForearm = new THREE.Mesh(new THREE.CapsuleGeometry(0.16, 1.1, 8, 12), skinMaterial);
+      leftForearm.position.y = -0.55;
+      leftForearmPivot.add(leftForearm);
+
+      const leftHandGroup = new THREE.Group();
+      leftHandGroup.position.set(0, -1.15, 0.1);
+      leftForearmPivot.add(leftHandGroup);
+      const leftPalm = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.25, 0.34), skinMaterial);
+      leftPalm.position.set(0, 0, 0.1);
+      leftHandGroup.add(leftPalm);
+
+      const rightArmPivot = new THREE.Group();
+      rightArmPivot.position.set(1.0, 1.25, 0);
+      bodyGroup.add(rightArmPivot);
+      const rightUpperArm = new THREE.Mesh(new THREE.CapsuleGeometry(0.18, 1.2, 8, 12), skinMaterial);
+      rightUpperArm.rotation.z = 0.7;
+      rightUpperArm.position.y = -0.62;
+      rightArmPivot.add(rightUpperArm);
+
+      const rightForearmPivot = new THREE.Group();
+      rightForearmPivot.position.set(0, -1.2, 0);
+      rightArmPivot.add(rightForearmPivot);
+      const rightForearm = new THREE.Mesh(new THREE.CapsuleGeometry(0.16, 1.1, 8, 12), skinMaterial);
+      rightForearm.position.y = -0.55;
+      rightForearmPivot.add(rightForearm);
+
+      const rightHandGroup = new THREE.Group();
+      rightHandGroup.position.set(0, -1.15, 0.1);
+      rightForearmPivot.add(rightHandGroup);
+      const rightPalm = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.25, 0.34), skinMaterial);
+      rightPalm.position.set(0, 0, 0.1);
+      rightHandGroup.add(rightPalm);
+
+      const leftFingerGroups = [];
+      for (let i = 0; i < 5; i++) {
+        const fingerGroup = new THREE.Group();
+        fingerGroup.position.set(-0.18 + i * 0.09, 0.07, 0.08);
+        fingerGroup.rotation.z = -0.15 + i * 0.06;
+        leftHandGroup.add(fingerGroup);
+
+        const finger = new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 0.42, 5, 10), skinMaterial);
+        finger.position.y = -0.24;
+        finger.rotation.z = 0.12;
+        fingerGroup.add(finger);
+        leftFingerGroups.push(fingerGroup);
+      }
+
+      const rightFingerGroups = [];
+      for (let i = 0; i < 5; i++) {
+        const fingerGroup = new THREE.Group();
+        fingerGroup.position.set(-0.18 + i * 0.09, 0.07, 0.08);
+        fingerGroup.rotation.z = -0.15 + i * 0.06;
+        rightHandGroup.add(fingerGroup);
+
+        const finger = new THREE.Mesh(new THREE.CapsuleGeometry(0.045, 0.42, 5, 10), skinMaterial);
+        finger.position.y = -0.24;
+        finger.rotation.z = 0.12;
+        fingerGroup.add(finger);
+        rightFingerGroups.push(fingerGroup);
+      }
+
+      const leftThumb = new THREE.Mesh(new THREE.CapsuleGeometry(0.04, 0.28, 5, 10), skinMaterial);
+      leftThumb.position.set(0.18, 0.0, 0.2);
+      leftThumb.rotation.z = -0.75;
+      leftHandGroup.add(leftThumb);
+
+      const rightThumb = leftThumb.clone();
+      rightHandGroup.add(rightThumb);
+      rightThumb.position.x = 0.18;
+      rightThumb.rotation.z = -0.75;
+
+      function makeNeutralPose() {
+        return Array.from({ length: 21 }, () => [0, 0, 0]);
+      }
+
+      function clamp(value, min, max) {
+        return Math.min(Math.max(value, min), max);
+      }
+
+      function applyPose(pose) {
+        if (!pose || pose.length < 21) return;
+
+        const wrist = pose[0] || [0, 0, 0];
+        const leftWrist = pose[9] || wrist;
+        const dx = wrist[0] ?? 0;
+        const dy = wrist[1] ?? 0;
+
+        const rightYaw = clamp(dx * 2.2, -1.5, 1.5);
+        const rightPitch = clamp(-dy * 2.8, -1.2, 1.2);
+        const leftYaw = clamp((leftWrist[0] ?? 0) * 2.0, -1.5, 1.5);
+        const leftPitch = clamp(-(leftWrist[1] ?? 0) * 2.4, -1.2, 1.2);
+
+        rightArmPivot.rotation.z = 0.55 + rightYaw * 0.9;
+        rightArmPivot.rotation.x = rightPitch * 0.8;
+        rightForearmPivot.rotation.x = clamp((wrist[2] ?? 0) * 2.2, -1.0, 1.2);
+
+        leftArmPivot.rotation.z = -0.55 - leftYaw * 0.9;
+        leftArmPivot.rotation.x = leftPitch * 0.8;
+        leftForearmPivot.rotation.x = clamp(-(leftWrist[2] ?? 0) * 2.2, -1.0, 1.2);
+
+        const bendTargets = [4, 8, 12, 16, 20];
+        const handConfigs = [
+          { groups: rightFingerGroups, wrist: wrist },
+          { groups: leftFingerGroups, wrist: leftWrist }
+        ];
+
+        handConfigs.forEach(({ groups, wrist: handWrist }) => {
+          groups.forEach((fingerGroup, idx) => {
+            const tipIndex = bendTargets[idx];
+            const tip = pose[tipIndex] || [0, 0, 0];
+            const openness = clamp((Math.abs((tip[0] ?? 0) - (handWrist[0] ?? 0)) + Math.abs((tip[1] ?? 0) - (handWrist[1] ?? 0))) * 1.7, 0.0, 1.2);
+            const bend = THREE.MathUtils.mapLinear(openness, 0, 1.2, 0.15, 1.35);
+            fingerGroup.rotation.x = -bend * 1.2;
+            fingerGroup.rotation.y = ((tip[0] ?? 0) - (handWrist[0] ?? 0)) * 1.2;
+          });
+        });
+
+        rightThumb.rotation.x = clamp(-(wrist[1] ?? 0) * 1.6, -0.9, 0.7);
+        rightThumb.rotation.y = clamp((wrist[0] ?? 0) * 1.8, -0.7, 0.7);
+        leftThumb.rotation.x = clamp(-(leftWrist[1] ?? 0) * 1.6, -0.9, 0.7);
+        leftThumb.rotation.y = clamp((leftWrist[0] ?? 0) * 1.8, -0.7, 0.7);
+
+        head.rotation.y = clamp(dx * 0.7 + Math.sin(performance.now() * 0.0012) * 0.12, -0.8, 0.8);
+        head.rotation.x = clamp((dy * 0.5) - 0.08, -0.25, 0.25);
+        bodyGroup.rotation.y = 0.15 + Math.sin(performance.now() * 0.0011) * 0.12;
+        bodyGroup.position.y = Math.sin(performance.now() * 0.0015) * 0.06;
+        avatar.rotation.y = 0.12 + Math.sin(performance.now() * 0.001) * 0.18;
+        applyPoseToLoadedAvatar(pose);
+      }
+
+      function getAvatarBone(name) {
+        if (!loadedAvatar?.humanoid) return null;
+        if (!loadedAvatarBones.has(name)) {
+          loadedAvatarBones.set(name, loadedAvatar.humanoid.getNormalizedBoneNode(name));
+        }
+        return loadedAvatarBones.get(name);
+      }
+
+      function applyPoseToLoadedAvatar(pose) {
+        if (!loadedAvatar) return;
+
+        const wrist = pose[0] || [0, 0, 0];
+        const upperArmR = getAvatarBone('rightUpperArm');
+        const lowerArmR = getAvatarBone('rightLowerArm');
+        const handR = getAvatarBone('rightHand');
+        const upperArmL = getAvatarBone('leftUpperArm');
+        const lowerArmL = getAvatarBone('leftLowerArm');
+        const handL = getAvatarBone('leftHand');
+
+        if (upperArmR) {
+          upperArmR.rotation.z = 0.55 + clamp((wrist[0] ?? 0) * 1.5, -1.0, 1.0);
+          upperArmR.rotation.x = clamp(-(wrist[1] ?? 0) * 1.4, -0.8, 0.8);
+        }
+        if (lowerArmR) {
+          lowerArmR.rotation.x = clamp((wrist[2] ?? 0) * 1.8, -1.0, 1.0);
+        }
+        if (handR) {
+          handR.rotation.x = clamp(-(wrist[1] ?? 0) * 1.5, -0.8, 0.8);
+          handR.rotation.y = clamp((wrist[0] ?? 0) * 1.5, -0.8, 0.8);
+        }
+        if (upperArmL) {
+          upperArmL.rotation.z = -0.55;
+        }
+        if (lowerArmL) {
+          lowerArmL.rotation.x = 0.15;
+        }
+        if (handL) {
+          handL.rotation.x = 0.1;
+        }
+
+        const fingerNames = [
+          ['rightThumbProximal', 'rightThumbIntermediate', 'rightThumbDistal'],
+          ['rightIndexProximal', 'rightIndexIntermediate', 'rightIndexDistal'],
+          ['rightMiddleProximal', 'rightMiddleIntermediate', 'rightMiddleDistal'],
+          ['rightRingProximal', 'rightRingIntermediate', 'rightRingDistal'],
+          ['rightLittleProximal', 'rightLittleIntermediate', 'rightLittleDistal']
+        ];
+        const bendTargets = [4, 8, 12, 16, 20];
+        fingerNames.forEach((chain, index) => {
+          const tip = pose[bendTargets[index]] || wrist;
+          const openness = clamp(
+            (Math.abs((tip[0] ?? 0) - (wrist[0] ?? 0)) +
+              Math.abs((tip[1] ?? 0) - (wrist[1] ?? 0))) * 1.7,
+            0,
+            1.2
+          );
+          const bend = THREE.MathUtils.mapLinear(openness, 0, 1.2, 0.1, 1.1);
+          chain.forEach((boneName, segment) => {
+            const bone = getAvatarBone(boneName);
+            if (bone) bone.rotation.x = -bend * (segment === 0 ? 0.65 : 0.45);
+          });
+        });
+
+        const head = getAvatarBone('head');
+        if (head) {
+          head.rotation.y = clamp((wrist[0] ?? 0) * 0.5, -0.5, 0.5);
+          head.rotation.x = clamp((wrist[1] ?? 0) * 0.35, -0.2, 0.2);
+        }
+      }
+
+      function showLoadedAvatar(vrm) {
+        if (loadedAvatar) scene.remove(loadedAvatar.scene);
+        loadedAvatar = vrm;
+        loadedAvatarBones = new Map();
+        loadedAvatar.scene.rotation.y = Math.PI;
+        loadedAvatar.scene.position.set(0, -3.05, 0);
+        loadedAvatar.scene.scale.setScalar(3.2);
+        scene.add(loadedAvatar.scene);
+        avatar.visible = false;
+        status.textContent = '3D avatar loaded. Playing sign poses on the humanoid rig.';
+      }
+
+      function loadAvatarFile(file) {
+        if (!file) return;
+        if (!file.name.toLowerCase().endsWith('.vrm')) {
+          status.textContent = 'Please choose a .vrm humanoid avatar file.';
+          return;
+        }
+        const objectUrl = URL.createObjectURL(file);
+        gltfLoader.load(
+          objectUrl,
+          (gltf) => {
+            URL.revokeObjectURL(objectUrl);
+            if (!gltf.userData.vrm) {
+              status.textContent = 'This file is not a VRM avatar. Please choose a licensed .vrm file.';
+              return;
+            }
+            showLoadedAvatar(gltf.userData.vrm);
+          },
+          undefined,
+          (error) => {
+            URL.revokeObjectURL(objectUrl);
+            status.textContent = 'Avatar failed to load. Choose a valid VRM file.';
+            console.error(error);
+          }
+        );
+      }
+
+      function smoothPose(target, current, amount = 0.12) {
+        if (!current.length || !target.length) return target;
+        const next = current.map((point, i) => {
+          const targetPoint = target[i] || [0, 0, 0];
+          return point.map((value, axis) => THREE.MathUtils.lerp(value, targetPoint[axis], amount));
+        });
+        return next;
+      }
+
+      function animate() {
+        const now = performance.now();
+        const delta = Math.min((now - previousFrameTime) / 1000, 0.1);
+        previousFrameTime = now;
+        if (targetPose.length) {
+          currentPose = smoothPose(targetPose, currentPose, 0.14);
+          applyPose(currentPose);
+        } else {
+          applyPose(makeNeutralPose());
+        }
+
+        if (loadedAvatar) loadedAvatar.update(delta);
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+      }
+
+      async function loadPoses() {
+        try {
+          const response = await fetch('/api/poses');
+          poses = await response.json();
+          status.textContent = `Loaded ${Object.keys(poses).length} letter poses.`;
+
+          const firstKey = Object.keys(poses)[0];
+          targetPose = poses[firstKey] || makeNeutralPose();
+          currentPose = makeNeutralPose();
+          applyPose(currentPose);
+        } catch (error) {
+          status.textContent = 'Pose data failed to load. Check the Flask server.';
+          console.error(error);
+        }
+      }
+
+      function setTargetForLetter(letter) {
+        const key = letter.toUpperCase();
+        if (!poses[key]) {
+          status.textContent = `No pose for ${key}; using neutral pose.`;
+          targetPose = makeNeutralPose();
+          return;
+        }
+
+        targetPose = poses[key];
+        status.textContent = `Playing letter: ${key}`;
+      }
+
+      function playWord(word) {
+        const symbols = [...word.toUpperCase()].filter((ch) => ch === ' ' || poses[ch]);
+        if (!symbols.length) {
+          status.textContent = 'No valid symbols found for playback.';
+          return;
+        }
+
+        let index = 0;
+        status.textContent = `Playing: ${symbols.join(' ')}`;
+
+        const interval = setInterval(() => {
+          if (index >= symbols.length) {
+            clearInterval(interval);
+            status.textContent = 'Playback complete.';
+            return;
+          }
+
+          const ch = symbols[index];
+          if (ch === ' ') {
+            targetPose = makeNeutralPose();
+          } else {
+            setTargetForLetter(ch);
+          }
+          index += 1;
+        }, 700);
+      }
+
+      playButton.addEventListener('click', () => {
+        const value = textInput.value.trim();
+        if (value) {
+          playWord(value);
+        }
+      });
+
+      avatarInput.addEventListener('change', () => loadAvatarFile(avatarInput.files?.[0]));
+
+      const viewerWrap = document.querySelector('.viewer-wrap');
+      viewerWrap.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        viewerWrap.classList.add('dragging');
+      });
+      viewerWrap.addEventListener('dragleave', () => viewerWrap.classList.remove('dragging'));
+      viewerWrap.addEventListener('drop', (event) => {
+        event.preventDefault();
+        viewerWrap.classList.remove('dragging');
+        loadAvatarFile(event.dataTransfer.files?.[0]);
+      });
+
+      function onResize() {
+        if (!viewer) return;
+        camera.aspect = viewer.clientWidth / viewer.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(viewer.clientWidth, viewer.clientHeight);
+      }
+
+      window.addEventListener('resize', onResize);
+      loadPoses();
+      animate();
+    </script>
+  </body>
+</html>
