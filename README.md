@@ -25,6 +25,8 @@ PalmVoice-AI/
 │   ├── web/
 │   │   ├── index.html          # Browser text-to-sign UI
 │   │   └── poses.json          # Browser-ready hand poses
+│   ├── assets/
+│   │   └── avatar.vrm          # Bundled licensed VRM avatar
 │   ├── requirements.txt
 │   └── README.md
 ├── Sign_Language_Translator_Build_Guide.pdf
@@ -70,6 +72,10 @@ Open <http://localhost:5000> in a browser. The app exposes:
 
 The UI can load a local `.vrm` humanoid avatar. Avatar files are not uploaded to the server; only use assets you are licensed to use.
 
+The page includes title, description, Open Graph, and Twitter card metadata for sharing
+after the Flask app is deployed to a public URL. Twitter/X does not host Flask apps
+directly, so deploy the app to a Python-compatible host before sharing its URL.
+
 ## Run live ASL recognition
 
 ```powershell
@@ -104,4 +110,3 @@ Keep generated environments and caches out of commits. Before opening a pull req
 ## License
 
 This project is released under the [MIT License](LICENSE). Third-party models, datasets, and avatar assets retain their own licenses.
-

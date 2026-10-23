@@ -3,16 +3,26 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Human AI Sign Avatar</title>
+    <title>PalmVoice AI | Sign language, brought to life.</title>
+    <meta name="description" content="PalmVoice AI is a browser-based text-to-sign demo for ASL fingerspelling with a VRM humanoid avatar." />
+    <meta property="og:title" content="PalmVoice AI | Sign language, brought to life." />
+    <meta property="og:description" content="A browser-based text-to-sign demo for ASL fingerspelling with a VRM humanoid avatar." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="PalmVoice AI | Sign language, brought to life." />
+    <meta name="twitter:description" content="A browser-based text-to-sign demo for ASL fingerspelling with a VRM humanoid avatar." />
     <style>
       :root {
-        --bg: #09111f;
-        --panel: rgba(15, 23, 42, 0.82);
-        --card: rgba(17, 24, 39, 0.9);
-        --accent: #66d9ef;
-        --accent-2: #a78bfa;
-        --text: #eef6ff;
-        --soft: #93c5fd;
+        --bg: #080617;
+        --panel: rgba(16, 8, 42, 0.78);
+        --card: rgba(45, 13, 66, 0.74);
+        --accent: #ffb000;
+        --accent-2: #ff3c72;
+        --pink: #ed147f;
+        --lavender: #c39bff;
+        --text: #fff8ed;
+        --soft: #dfc9dc;
+        --line: rgba(255, 177, 76, 0.24);
       }
 
       * { box-sizing: border-box; }
@@ -20,71 +30,246 @@
       body {
         margin: 0;
         min-height: 100vh;
-        background: radial-gradient(circle at top, #14243d 0%, #09111f 38%, #050b14 100%);
+        background:
+          radial-gradient(ellipse at 12% 2%, rgba(255, 160, 0, 0.28), transparent 23rem),
+          radial-gradient(ellipse at 74% 18%, rgba(237, 20, 127, 0.3), transparent 28rem),
+          radial-gradient(ellipse at 96% 70%, rgba(111, 38, 167, 0.34), transparent 30rem),
+          linear-gradient(135deg, #080617 0%, #130724 50%, #240b35 100%);
         color: var(--text);
-        font-family: Arial, sans-serif;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
 
       .app {
-        max-width: 1100px;
+        max-width: 1240px;
         margin: 0 auto;
-        padding: 24px;
+        padding: 22px 24px 70px;
       }
+
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 4px 30px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: var(--text);
+        letter-spacing: 0.2em;
+        font-size: 0.82rem;
+        font-weight: 700;
+      }
+
+      .brand-mark {
+        width: 34px;
+        height: 34px;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(255, 176, 0, 0.85);
+        border-radius: 50% 50% 50% 12px;
+        color: var(--accent);
+        font-size: 1.1rem;
+        box-shadow: 0 0 24px rgba(255, 74, 80, 0.4);
+      }
+
+      .nav {
+        display: flex;
+        gap: 24px;
+        color: var(--soft);
+        font-size: 0.86rem;
+      }
+
+      .nav a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .nav a:hover { color: var(--text); }
 
       .panel {
         background: var(--panel);
-        border: 1px solid rgba(148, 163, 184, 0.22);
-        border-radius: 18px;
+        border: 1px solid var(--line);
+        border-radius: 28px;
         overflow: hidden;
-        box-shadow: 0 22px 60px rgba(0, 0, 0, 0.35);
+        box-shadow: 0 28px 90px rgba(0, 0, 0, 0.35);
+        backdrop-filter: blur(22px);
       }
 
       .header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 18px 22px;
-        border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+        padding: 22px 30px;
+        border-bottom: 1px solid var(--line);
       }
 
       h1 {
         margin: 0;
-        font-size: 1.5rem;
+        font-size: clamp(1.8rem, 4vw, 3.8rem);
+        line-height: 0.98;
+        letter-spacing: -0.05em;
+        max-width: 650px;
       }
 
-      .viewer-wrap {
+      .eyebrow {
+        margin: 0 0 14px;
+        color: var(--accent);
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+      }
+
+      .hero-copy {
+        max-width: 560px;
+        padding: 62px 0 74px 44px;
+      }
+
+      .hero-copy p {
+        max-width: 470px;
+        color: var(--soft);
+        font-size: 1.05rem;
+        line-height: 1.7;
+        margin: 22px 0 28px;
+      }
+
+      .gradient-text {
+        background: linear-gradient(100deg, #fff3c4 8%, #ffbd19 38%, #ff3c72 70%, #c39bff);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 0.9fr 1.1fr;
+        min-height: 620px;
         position: relative;
-        height: 560px;
-        background: linear-gradient(180deg, rgba(18, 32, 52, 0.9), rgba(9, 17, 31, 0.9));
+        overflow: hidden;
+        background:
+          radial-gradient(ellipse at 78% 52%, rgba(255, 151, 0, 0.26), transparent 21rem),
+          radial-gradient(ellipse at 92% 82%, rgba(237, 20, 127, 0.28), transparent 25rem),
+          radial-gradient(ellipse at 52% 4%, rgba(125, 61, 189, 0.26), transparent 27rem);
       }
 
-      #viewer {
-        width: 100%;
+      .hero::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background: linear-gradient(90deg, rgba(5, 7, 25, 0.35), transparent 60%);
+      }
+
+      .hero .viewer-wrap {
+        min-height: 620px;
+        height: 620px;
+        background: transparent;
+        order: 2;
+      }
+
+      .hero #viewer {
         height: 100%;
       }
 
-      .drop-hint {
-        position: absolute;
-        inset: 18px 18px auto auto;
-        padding: 9px 12px;
-        border: 1px dashed rgba(147, 197, 253, 0.55);
-        border-radius: 10px;
-        color: var(--soft);
-        background: rgba(9, 17, 31, 0.65);
-        font-size: 0.82rem;
-        pointer-events: none;
+      .hero .hero-copy { position: relative; z-index: 2; }
+
+      .hero-actions {
+        display: flex;
+        gap: 12px;
+        align-items: center;
       }
 
-      .viewer-wrap.dragging {
-        outline: 3px solid rgba(102, 217, 239, 0.8);
-        outline-offset: -3px;
+      .primary-action, .secondary-action {
+        border: 0;
+        border-radius: 999px;
+        padding: 14px 22px;
+        font-size: 0.92rem;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      .primary-action {
+        color: #070921;
+        background: linear-gradient(100deg, #ffbf18, #ff6a2a 52%, var(--accent-2));
+        box-shadow: 0 12px 30px rgba(255, 93, 44, 0.28);
+      }
+
+      .secondary-action {
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--line);
+      }
+
+      .section {
+        padding: 76px 44px;
+        border-top: 1px solid var(--line);
+      }
+
+      .section-heading {
+        display: flex;
+        justify-content: space-between;
+        gap: 24px;
+        align-items: end;
+        margin-bottom: 30px;
+      }
+
+      .section-heading h2 {
+        margin: 0;
+        font-size: clamp(1.8rem, 3vw, 3rem);
+        letter-spacing: -0.04em;
+      }
+
+      .section-heading p {
+        max-width: 440px;
+        color: var(--soft);
+        line-height: 1.6;
+        margin: 0;
+      }
+
+      .card-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+      }
+
+      .info-card {
+        min-height: 190px;
+        padding: 24px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background:
+          radial-gradient(circle at 100% 0%, rgba(255, 92, 34, 0.16), transparent 13rem),
+          linear-gradient(145deg, rgba(67, 18, 89, 0.82), rgba(20, 8, 45, 0.76));
+      }
+
+      .card-icon {
+        color: var(--accent);
+        font-size: 1.4rem;
+        margin-bottom: 18px;
+      }
+
+      .info-card h3 {
+        margin: 0 0 10px;
+        font-size: 1.08rem;
+      }
+
+      .info-card p {
+        color: var(--soft);
+        line-height: 1.55;
+        margin: 0;
+      }
+
+      .control-panel {
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        gap: 12px;
+        align-items: center;
       }
 
       .controls {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 18px 20px 22px;
+        display: contents;
       }
 
       input, button {
@@ -94,76 +279,197 @@
       }
 
       input {
-        flex: 1;
-        padding: 14px 16px;
-        background: rgba(15, 118, 110, 0.12);
+        min-width: 0;
+        padding: 15px 17px;
+        background: rgba(4, 7, 28, 0.72);
         color: var(--text);
-        border: 1px solid rgba(104, 211, 145, 0.3);
+        border: 1px solid var(--line);
       }
 
-      button {
-        padding: 14px 20px;
-        background: linear-gradient(135deg, var(--accent), var(--accent-2));
-        color: #06131e;
-        font-weight: 700;
+      .controls button {
+        padding: 15px 22px;
+        background: linear-gradient(135deg, #ffc21c, #ff5b2e 52%, var(--accent-2));
+        color: #210719;
+        font-weight: 800;
         cursor: pointer;
-        box-shadow: 0 8px 22px rgba(102, 217, 239, 0.3);
       }
 
       .upload-button {
-        padding: 14px 16px;
-        border: 1px solid rgba(167, 139, 250, 0.45);
+        padding: 15px 18px;
+        border: 1px solid var(--line);
         border-radius: 12px;
         color: var(--text);
         cursor: pointer;
         white-space: nowrap;
+        text-align: center;
       }
 
       .upload-button input {
         display: none;
       }
 
-      .status {
-        padding: 0 20px 18px;
+      .drop-hint {
+        position: absolute;
+        inset: 22px 28px auto auto;
+        padding: 9px 12px;
+        border: 1px dashed rgba(255, 185, 74, 0.65);
+        border-radius: 999px;
         color: var(--soft);
+        background: rgba(30, 8, 40, 0.72);
+        font-size: 0.76rem;
+        pointer-events: none;
+      }
+
+      .viewer-wrap.dragging {
+        outline: 3px solid rgba(255, 174, 0, 0.85);
+        outline-offset: -3px;
+      }
+
+      .status {
+        padding: 16px 0 0;
+        color: var(--accent);
         min-height: 20px;
+        font-size: 0.86rem;
       }
 
       .help {
-        padding: 0 20px 20px;
-        color: #bfd7f5;
+        color: var(--soft);
         font-size: 0.86rem;
-        line-height: 1.45;
+        line-height: 1.6;
+        margin: 16px 0 0;
+      }
+
+      .help code { color: var(--accent); }
+
+      .footer {
+        display: flex;
+        justify-content: space-between;
+        color: var(--soft);
+        font-size: 0.78rem;
+        padding: 22px 4px 0;
+      }
+
+      @media (max-width: 850px) {
+        .hero { grid-template-columns: 1fr; }
+        .hero .viewer-wrap { order: 1; min-height: 480px; height: 480px; }
+        .hero-copy { order: 2; padding: 20px 28px 56px; }
+        .card-grid { grid-template-columns: 1fr; }
+        .control-panel { grid-template-columns: 1fr; }
+        .section { padding: 54px 28px; }
+      }
+
+      @media (max-width: 560px) {
+        .app { padding: 14px 12px 46px; }
+        .topbar { padding-bottom: 18px; }
+        .nav { display: none; }
+        .header { padding: 18px 20px; }
       }
     </style>
   </head>
   <body>
     <div class="app">
+      <div class="topbar">
+        <div class="brand"><span class="brand-mark">✦</span> PALMVOICE AI</div>
+        <nav class="nav" aria-label="Page sections">
+          <a href="#how-it-works">How it works</a>
+          <a href="#capabilities">Capabilities</a>
+          <a href="#controls">Try it</a>
+        </nav>
+      </div>
       <div class="panel">
         <div class="header">
-          <h1>AI Sign Language Avatar</h1>
+          <div>
+            <p class="eyebrow">AI Sign Language Avatar</p>
+            <h1>Sign language, <span class="gradient-text">brought to life.</span></h1>
+          </div>
         </div>
 
-        <div class="viewer-wrap">
-          <div id="viewer"></div>
-          <div class="drop-hint">Drop a licensed .vrm avatar here</div>
+        <div class="hero">
+          <div class="hero-copy">
+            <p class="eyebrow">Text to sign</p>
+            <p>Type a phrase to fingerspell it in ASL with a browser-based text-to-sign demo.</p>
+            <div class="hero-actions">
+              <button class="primary-action" type="button" onclick="document.getElementById('controls').scrollIntoView({ behavior: 'smooth' })">Try the demo</button>
+              <button class="secondary-action" type="button" onclick="document.getElementById('how-it-works').scrollIntoView({ behavior: 'smooth' })">Explore the project</button>
+            </div>
+          </div>
+          <div class="viewer-wrap">
+            <div id="viewer"></div>
+            <div class="drop-hint">Drop a licensed .vrm avatar here</div>
+          </div>
         </div>
 
-        <div class="controls">
-          <input id="textInput" value="HELLO" aria-label="Text to sign" />
-          <button id="playButton" type="button">Play sign</button>
-          <label class="upload-button">
-            Load 3D avatar
-            <input id="avatarInput" type="file" accept=".vrm" />
-          </label>
-        </div>
+        <section class="section" id="controls">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Interactive demo</p>
+              <h2>Make a sign.</h2>
+            </div>
+            <p>Fingerspelling is a bridge to a complete ASL grammar translator, not a replacement for a fluent human signer.</p>
+          </div>
+          <div class="control-panel">
+            <div class="controls">
+              <input id="textInput" value="HELLO" aria-label="Text to sign" />
+              <button id="playButton" type="button">Play sign</button>
+              <label class="upload-button">
+                Load 3D avatar
+                <input id="avatarInput" type="file" accept=".vrm" />
+              </label>
+            </div>
+          </div>
+          <div id="status" class="status">Loading sign poses...</div>
+          <p class="help">The bundled avatar is loaded from <code>assets/avatar.vrm</code>. Set <code>PALMVOICE_VRM_PATH</code> to use another licensed VRM.</p>
+        </section>
 
-        <div id="status" class="status">Loading sign poses...</div>
-        <div class="help">
-          Type a phrase to fingerspell it in ASL. The configured local VRM is loaded from
-          <code>PALMVOICE_VRM_PATH</code> (default: <code>D:\model.vrm</code>).
-          Fingerspelling is a bridge to a complete ASL grammar translator, not a replacement for a fluent human signer.
-        </div>
+        <section class="section" id="how-it-works">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Project flow</p>
+              <h2>From text to sign.</h2>
+            </div>
+            <p>The project follows a working fingerspelling MVP for sign-to-text recognition, plus a browser-based text-to-sign demo.</p>
+          </div>
+          <div class="card-grid">
+            <article class="info-card"><div class="card-icon">01</div><h3>Text input</h3><p>Text is currently converted to ASL fingerspelling letter by letter.</p></article>
+            <article class="info-card"><div class="card-icon">02</div><h3>Sign poses</h3><p>Letter poses are loaded by the browser and played on the avatar.</p></article>
+            <article class="info-card"><div class="card-icon">03</div><h3>Humanoid rig</h3><p>VRM humanoid avatars allow the sign pose to drive the arm, hand, head, and finger rig.</p></article>
+          </div>
+        </section>
+
+        <section class="section" id="capabilities">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Capabilities</p>
+              <h2>Built for the next sign.</h2>
+            </div>
+            <p>Use an avatar that you are licensed to use. VRM files are recommended for their standardized humanoid bones.</p>
+          </div>
+          <div class="card-grid">
+            <article class="info-card"><div class="card-icon">◈</div><h3>ASL model</h3><p>smart_gestures supplies the real internet ASL model for the sign-to-text path.</p></article>
+            <article class="info-card"><div class="card-icon">◇</div><h3>Local VRM</h3><p>The configured local VRM is served locally and is not uploaded to a third party.</p></article>
+            <article class="info-card"><div class="card-icon">✦</div><h3>Browser demo</h3><p>The browser supports .vrm humanoid avatars through Three.js and three-vrm.</p></article>
+          </div>
+        </section>
+
+        <section class="section">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Project notes</p>
+              <h2>A clear starting point.</h2>
+            </div>
+            <p>For a production-ready version, the project would expand the dataset and add a richer alphabet vocabulary, better word assembly, and full-body motion capture.</p>
+          </div>
+          <div class="card-grid">
+            <article class="info-card"><h3>Current focus</h3><p>The project is intentionally static-fingerspelling focused and matches the recommended MVP.</p></article>
+            <article class="info-card"><h3>Current boundary</h3><p>Fluent ASL grammar and word-level motion require a licensed motion/animation dataset.</p></article>
+            <article class="info-card"><h3>Next direction</h3><p>Expand the dataset and add a richer alphabet vocabulary, better word assembly, and full-body motion capture.</p></article>
+          </div>
+        </section>
+
+        <footer class="footer">
+          <span>PALMVOICE AI</span>
+          <span>AI Sign Language Avatar</span>
+        </footer>
       </div>
     </div>
 
@@ -389,26 +695,27 @@
         return Math.min(Math.max(value, min), max);
       }
 
+      function safeLandmark(point) {
+        return [
+          clamp(Number(point?.[0]) || 0, -1, 1),
+          clamp(Number(point?.[1]) || 0, -1, 1),
+          clamp(Number(point?.[2]) || 0, -1, 1)
+        ];
+      }
+
       function applyPose(pose) {
         if (!pose || pose.length < 21) return;
 
-        const wrist = pose[0] || [0, 0, 0];
-        const leftWrist = pose[9] || wrist;
-        const dx = wrist[0] ?? 0;
-        const dy = wrist[1] ?? 0;
+        const wrist = safeLandmark(pose[0]);
+        const leftWrist = wrist;
+        const palm = safeLandmark(pose[9] || wrist);
+        const dx = clamp(palm[0] - wrist[0], -0.5, 0.5);
+        const dy = clamp(palm[1] - wrist[1], -0.7, 0.7);
 
-        const rightYaw = clamp(dx * 2.2, -1.5, 1.5);
-        const rightPitch = clamp(-dy * 2.8, -1.2, 1.2);
-        const leftYaw = clamp((leftWrist[0] ?? 0) * 2.0, -1.5, 1.5);
-        const leftPitch = clamp(-(leftWrist[1] ?? 0) * 2.4, -1.2, 1.2);
-
-        rightArmPivot.rotation.z = 0.55 + rightYaw * 0.9;
-        rightArmPivot.rotation.x = rightPitch * 0.8;
-        rightForearmPivot.rotation.x = clamp((wrist[2] ?? 0) * 2.2, -1.0, 1.2);
-
-        leftArmPivot.rotation.z = -0.55 - leftYaw * 0.9;
-        leftArmPivot.rotation.x = leftPitch * 0.8;
-        leftForearmPivot.rotation.x = clamp(-(leftWrist[2] ?? 0) * 2.2, -1.0, 1.2);
+        rightArmPivot.rotation.set(0.02, 0.08 + dx * 0.25, 0.62 - dy * 0.25);
+        rightForearmPivot.rotation.set(-0.92 - dy * 0.2, dx * 0.3, 0);
+        leftArmPivot.rotation.set(0.02, -0.08 - dx * 0.25, -0.62 + dy * 0.25);
+        leftForearmPivot.rotation.set(-0.92 - dy * 0.2, -dx * 0.3, 0);
 
         const bendTargets = [4, 8, 12, 16, 20];
         const handConfigs = [
@@ -419,11 +726,11 @@
         handConfigs.forEach(({ groups, wrist: handWrist }) => {
           groups.forEach((fingerGroup, idx) => {
             const tipIndex = bendTargets[idx];
-            const tip = pose[tipIndex] || [0, 0, 0];
-            const openness = clamp((Math.abs((tip[0] ?? 0) - (handWrist[0] ?? 0)) + Math.abs((tip[1] ?? 0) - (handWrist[1] ?? 0))) * 1.7, 0.0, 1.2);
+            const tip = safeLandmark(pose[tipIndex]);
+            const openness = clamp((Math.abs(tip[0] - handWrist[0]) + Math.abs(tip[1] - handWrist[1])) * 1.7, 0.0, 1.2);
             const bend = THREE.MathUtils.mapLinear(openness, 0, 1.2, 0.15, 1.35);
-            fingerGroup.rotation.x = -bend * 1.2;
-            fingerGroup.rotation.y = ((tip[0] ?? 0) - (handWrist[0] ?? 0)) * 1.2;
+            fingerGroup.rotation.x = -bend * 0.65;
+            fingerGroup.rotation.y = (tip[0] - handWrist[0]) * 0.8;
           });
         });
 
@@ -432,11 +739,11 @@
         leftThumb.rotation.x = clamp(-(leftWrist[1] ?? 0) * 1.6, -0.9, 0.7);
         leftThumb.rotation.y = clamp((leftWrist[0] ?? 0) * 1.8, -0.7, 0.7);
 
-        head.rotation.y = clamp(dx * 0.7 + Math.sin(performance.now() * 0.0012) * 0.12, -0.8, 0.8);
-        head.rotation.x = clamp((dy * 0.5) - 0.08, -0.25, 0.25);
-        bodyGroup.rotation.y = 0.15 + Math.sin(performance.now() * 0.0011) * 0.12;
-        bodyGroup.position.y = Math.sin(performance.now() * 0.0015) * 0.06;
-        avatar.rotation.y = 0.12 + Math.sin(performance.now() * 0.001) * 0.18;
+        head.rotation.y = clamp(dx * 0.35, -0.25, 0.25);
+        head.rotation.x = clamp(dy * 0.2 - 0.04, -0.16, 0.16);
+        bodyGroup.rotation.y = 0.08;
+        bodyGroup.position.y = 0;
+        avatar.rotation.y = 0.08;
         applyPoseToLoadedAvatar(pose, activeLetter);
       }
 
@@ -480,7 +787,7 @@
       function applyPoseToLoadedAvatar(pose, letter) {
         if (!loadedAvatar) return;
 
-        const wrist = pose[0] || [0, 0, 0];
+        const wrist = safeLandmark(pose[0]);
         const upperArmR = getAvatarBone('rightUpperArm');
         const lowerArmR = getAvatarBone('rightLowerArm');
         const handR = getAvatarBone('rightHand');
@@ -488,30 +795,26 @@
         const lowerArmL = getAvatarBone('leftLowerArm');
         const handL = getAvatarBone('leftHand');
 
-        const palm = pose[9] || [0.2, 0.1, 0];
+        const palm = safeLandmark(pose[9] || [0.2, 0.1, 0]);
         const preset = ASL_FINGER_PRESETS[letter] || [0.15, 0.15, 0.15, 0.15, 0.15];
 
         if (upperArmR) {
-          upperArmR.rotation.z = 0.35 + clamp((palm[0] - wrist[0]) * 1.2, -0.45, 0.45);
-          upperArmR.rotation.x = clamp(-(palm[1] - wrist[1]) * 1.4, -0.55, 0.55);
+          upperArmR.rotation.set(-0.12, 0.08, 0.48 - clamp((palm[1] - wrist[1]) * 0.3, -0.16, 0.16));
         }
         if (lowerArmR) {
-          lowerArmR.rotation.x = -0.35;
-          lowerArmR.rotation.y = clamp((palm[0] - wrist[0]) * 0.8, -0.35, 0.35);
+          lowerArmR.rotation.set(-0.95, clamp((palm[0] - wrist[0]) * 0.4, -0.2, 0.2), 0);
         }
         if (handR) {
-          handR.rotation.x = -0.15 + clamp((palm[1] - wrist[1]) * 0.45, -0.25, 0.25);
-          handR.rotation.y = clamp((palm[0] - wrist[0]) * 0.5, -0.25, 0.25);
-          handR.rotation.z = clamp((palm[2] - wrist[2]) * 0.35, -0.2, 0.2);
+          handR.rotation.set(-0.2, clamp((palm[0] - wrist[0]) * 0.25, -0.15, 0.15), 0);
         }
         if (upperArmL) {
-          upperArmL.rotation.z = -0.4;
+          upperArmL.rotation.set(-0.12, -0.08, -0.48);
         }
         if (lowerArmL) {
-          lowerArmL.rotation.x = -0.25;
+          lowerArmL.rotation.set(-0.95, clamp((palm[0] - wrist[0]) * -0.4, -0.2, 0.2), 0);
         }
         if (handL) {
-          handL.rotation.x = -0.1;
+          handL.rotation.set(-0.2, 0, 0);
         }
 
         const fingerNames = [
@@ -534,8 +837,8 @@
 
         const head = getAvatarBone('head');
         if (head) {
-          head.rotation.y = clamp((wrist[0] ?? 0) * 0.5, -0.5, 0.5);
-          head.rotation.x = clamp((wrist[1] ?? 0) * 0.35, -0.2, 0.2);
+          head.rotation.y = clamp((palm[0] - wrist[0]) * 0.25, -0.2, 0.2);
+          head.rotation.x = clamp((palm[1] - wrist[1]) * 0.2 - 0.04, -0.15, 0.15);
         }
       }
 

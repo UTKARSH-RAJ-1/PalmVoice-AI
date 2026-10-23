@@ -50,8 +50,8 @@ Then open http://localhost:5000.
 
 ### Use a local VRM avatar
 
-The browser demo automatically loads `D:\model.vrm` when that file exists. The file is
-served locally by Flask and is never copied into Git or uploaded to a third party.
+The browser demo automatically loads the bundled `assets/avatar.vrm` file. The avatar
+is served locally by Flask and is not uploaded to a third party.
 To use another avatar, set `PALMVOICE_VRM_PATH` before starting the server:
 
 ```powershell
@@ -71,6 +71,8 @@ complete animation.
   are not inferred from ordinary text automatically.
 - `smart_gestures` supplies the real internet ASL model; a local synthetic fallback still exists for environments without a webcam or dataset.
 - The browser supports `.vrm` humanoid avatars through Three.js and `three-vrm`. Click **Load 3D avatar** and choose a VRM file. The procedural character remains as a fallback when no avatar is loaded.
+- Hand landmarks are kept in normalized `[-1, 1]` coordinates. Legacy generated landmark files with out-of-range values are rebuilt automatically so they cannot produce extreme arm rotations.
+- The avatar uses a stable, forward-facing signing stance with both arms supported; it does not add idle body sway that can make the hands drift away from the camera.
 - You can also drag a `.vrm` file onto the viewer. The page validates the extension, loads the model locally with no upload to the server, and shows an explicit error if the file is invalid.
 - Use an avatar that you are licensed to use. VRM files are recommended because their standardized humanoid bones allow the sign pose to drive the arm, hand, head, and finger rig.
 - For a production-ready version, you would expand the dataset and add a richer alphabet vocabulary, better word assembly, and full-body motion capture.

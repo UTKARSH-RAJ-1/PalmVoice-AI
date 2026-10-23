@@ -14,7 +14,8 @@ ROOT = Path(__file__).resolve().parent
 DATA_DIR = ROOT / "data"
 LANDMARKS_PATH = DATA_DIR / "landmarks.csv"
 WEB_DIR = ROOT / "web"
-DEFAULT_VRM_PATH = Path(os.environ.get("PALMVOICE_VRM_PATH", r"D:\model.vrm"))
+BUNDLED_VRM_PATH = ROOT / "assets" / "avatar.vrm"
+DEFAULT_VRM_PATH = Path(os.environ.get("PALMVOICE_VRM_PATH", str(BUNDLED_VRM_PATH)))
 
 app = Flask(__name__, static_folder=str(WEB_DIR), static_url_path="")
 
@@ -37,7 +38,7 @@ def health():
 
 @app.route("/api/avatar")
 def avatar_route():
-    """Serve the locally configured VRM without copying it into the repository."""
+    """Serve the locally configured VRM avatar."""
     if not DEFAULT_VRM_PATH.is_file():
         return (
             jsonify(

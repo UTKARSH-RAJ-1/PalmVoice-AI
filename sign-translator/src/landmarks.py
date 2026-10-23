@@ -18,21 +18,39 @@ def _label_values() -> List[str]:
 def _synthetic_pose(label: str, seed: int) -> np.ndarray:
     rng = np.random.default_rng(seed)
     label_index = _label_values().index(label) if label in _label_values() else 0
-    features = np.zeros(63, dtype=float)
+    pose = np.zeros((21, 3), dtype=float)
+    pose[0] = [0.0, 0.0, 0.0]
 
-    anchor_1 = (label_index * 7 + 5) % 63
-    anchor_2 = (label_index * 13 + 19) % 63
-    anchor_3 = (label_index * 17 + 31) % 63
-    features[anchor_1] = 40.0 + label_index * 1.5
-    features[anchor_2] = 26.0 + label_index * 1.1
-    features[anchor_3] = 18.0 + label_index * 0.8
-    for i in range(63):
-        features[i] += 0.5 * math.sin((i + 1) * 0.7 + label_index + seed / 12.0)
-    features += rng.normal(0.0, 0.2, size=63)
+    finger_x = [-0.32, -0.16, 0.0, 0.16, 0.32]
+    finger_lengths = [0.42, 0.62, 0.72, 0.66, 0.5]
+    curl = ((label_index * 3) % 7) / 6.0
+    if label in {"B", "W"}:
+        curl = 0.0
+    elif label in {"A", "E", "M", "N", "S", "T"}:
+        curl = 0.9
 
+    for finger_index, x in enumerate(finger_x):
+        base = 1 + finger_index * 4
+        length = finger_lengths[finger_index] * (1.0 - curl * 0.35)
+        for segment in range(1, 4):
+            progress = segment / 3.0
+            bend = curl * progress * progress * 0.22
+            pose[base + segment - 1] = [
+                x + bend * (finger_index - 2) * 0.25,
+                -length * progress + bend,
+                0.015 * (finger_index - 2),
+            ]
+
+    pose[1] = [-0.28, -0.08, 0.05]
+    pose[2] = [-0.48, -0.2, 0.08]
+    pose[3] = [-0.58, -0.34, 0.1]
+    pose[4] = [-0.52, -0.43, 0.1]
     if label == "SPACE":
-        features[:] = 0.0
-    return features.reshape(21, 3)
+        pose[:] = 0.0
+
+    pose += rng.normal(0.0, 0.008, size=pose.shape)
+    pose[0] = 0.0
+    return np.clip(pose, -1.0, 1.0)
 
 
 def build_landmarks_csv(output_path: Path, samples_per_class: int = 60) -> Path:
@@ -54,7 +72,20 @@ def build_landmarks_csv(output_path: Path, samples_per_class: int = 60) -> Path:
 
 def ensure_landmarks_csv(csv_path: Path, dataset_dir: Path | None = None) -> Path:
     if csv_path.exists():
-        return csv_path
+        try:
+            with csv_path.open("r", newline="", encoding="utf-8") as csv_file:
+                reader = csv.DictReader(csv_file)
+                maximum = 0.0
+                for row in reader:
+                    maximum = max(
+                        maximum,
+                        *(abs(float(row[f"f{i}"])) for i in range(1, 64)),
+                    )
+            if maximum <= 1.0:
+                return csv_path
+        except (KeyError, StopIteration, ValueError):
+            pass
+        csv_path.unlink()
     if dataset_dir is not None and dataset_dir.exists():
         return csv_path
     return build_landmarks_csv(csv_path)
