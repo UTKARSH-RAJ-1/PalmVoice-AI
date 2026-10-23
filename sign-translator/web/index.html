@@ -128,6 +128,13 @@
         color: var(--soft);
         min-height: 20px;
       }
+
+      .help {
+        padding: 0 20px 20px;
+        color: #bfd7f5;
+        font-size: 0.86rem;
+        line-height: 1.45;
+      }
     </style>
   </head>
   <body>
@@ -152,6 +159,11 @@
         </div>
 
         <div id="status" class="status">Loading sign poses...</div>
+        <div class="help">
+          Type a phrase to fingerspell it in ASL. The configured local VRM is loaded from
+          <code>PALMVOICE_VRM_PATH</code> (default: <code>D:\model.vrm</code>).
+          Fingerspelling is a bridge to a complete ASL grammar translator, not a replacement for a fluent human signer.
+        </div>
       </div>
     </div>
 
@@ -169,9 +181,10 @@
       let poses = {};
       let currentPose = [];
       let targetPose = [];
-      let renderLoop = null;
       let loadedAvatar = null;
       let loadedAvatarBones = new Map();
+      let activeLetter = null;
+      let playbackTimer = null;
       let previousFrameTime = performance.now();
 
       const scene = new THREE.Scene();
@@ -424,7 +437,7 @@
         bodyGroup.rotation.y = 0.15 + Math.sin(performance.now() * 0.0011) * 0.12;
         bodyGroup.position.y = Math.sin(performance.now() * 0.0015) * 0.06;
         avatar.rotation.y = 0.12 + Math.sin(performance.now() * 0.001) * 0.18;
-        applyPoseToLoadedAvatar(pose);
+        applyPoseToLoadedAvatar(pose, activeLetter);
       }
 
       function getAvatarBone(name) {
@@ -435,7 +448,36 @@
         return loadedAvatarBones.get(name);
       }
 
-      function applyPoseToLoadedAvatar(pose) {
+      const ASL_FINGER_PRESETS = {
+        A: [0.05, 1.25, 1.25, 1.25, 1.25],
+        B: [1.05, 0.05, 0.05, 0.05, 0.05],
+        C: [0.55, 0.55, 0.55, 0.55, 0.55],
+        D: [0.05, 0.05, 1.2, 1.2, 1.2],
+        E: [1.2, 1.2, 1.2, 1.2, 1.2],
+        F: [0.05, 0.05, 1.15, 1.15, 1.15],
+        G: [0.1, 0.2, 1.25, 1.25, 1.25],
+        H: [0.1, 0.15, 0.15, 1.25, 1.25],
+        I: [0.15, 1.2, 1.2, 1.2, 0.05],
+        J: [0.15, 1.2, 1.2, 1.2, 0.05],
+        K: [0.05, 0.05, 1.2, 1.2, 1.2],
+        L: [0.05, 0.05, 1.2, 1.2, 1.2],
+        M: [1.1, 1.1, 1.1, 1.1, 1.1],
+        N: [1.0, 1.0, 1.0, 1.0, 1.1],
+        O: [0.8, 0.8, 0.8, 0.8, 0.8],
+        P: [0.05, 0.1, 1.2, 1.2, 1.2],
+        Q: [0.1, 0.2, 1.2, 1.2, 1.2],
+        R: [0.05, 0.05, 1.0, 1.2, 1.2],
+        S: [1.1, 1.1, 1.1, 1.1, 1.1],
+        T: [0.9, 1.15, 1.15, 1.15, 1.15],
+        U: [0.05, 0.05, 0.05, 1.15, 1.15],
+        V: [0.05, 0.05, 0.05, 1.2, 1.2],
+        W: [0.05, 0.05, 0.05, 0.05, 0.05],
+        X: [0.1, 0.9, 1.2, 1.2, 1.2],
+        Y: [0.05, 1.2, 1.2, 1.2, 0.05],
+        Z: [0.05, 0.05, 1.2, 1.2, 1.2]
+      };
+
+      function applyPoseToLoadedAvatar(pose, letter) {
         if (!loadedAvatar) return;
 
         const wrist = pose[0] || [0, 0, 0];
@@ -446,25 +488,30 @@
         const lowerArmL = getAvatarBone('leftLowerArm');
         const handL = getAvatarBone('leftHand');
 
+        const palm = pose[9] || [0.2, 0.1, 0];
+        const preset = ASL_FINGER_PRESETS[letter] || [0.15, 0.15, 0.15, 0.15, 0.15];
+
         if (upperArmR) {
-          upperArmR.rotation.z = 0.55 + clamp((wrist[0] ?? 0) * 1.5, -1.0, 1.0);
-          upperArmR.rotation.x = clamp(-(wrist[1] ?? 0) * 1.4, -0.8, 0.8);
+          upperArmR.rotation.z = 0.35 + clamp((palm[0] - wrist[0]) * 1.2, -0.45, 0.45);
+          upperArmR.rotation.x = clamp(-(palm[1] - wrist[1]) * 1.4, -0.55, 0.55);
         }
         if (lowerArmR) {
-          lowerArmR.rotation.x = clamp((wrist[2] ?? 0) * 1.8, -1.0, 1.0);
+          lowerArmR.rotation.x = -0.35;
+          lowerArmR.rotation.y = clamp((palm[0] - wrist[0]) * 0.8, -0.35, 0.35);
         }
         if (handR) {
-          handR.rotation.x = clamp(-(wrist[1] ?? 0) * 1.5, -0.8, 0.8);
-          handR.rotation.y = clamp((wrist[0] ?? 0) * 1.5, -0.8, 0.8);
+          handR.rotation.x = -0.15 + clamp((palm[1] - wrist[1]) * 0.45, -0.25, 0.25);
+          handR.rotation.y = clamp((palm[0] - wrist[0]) * 0.5, -0.25, 0.25);
+          handR.rotation.z = clamp((palm[2] - wrist[2]) * 0.35, -0.2, 0.2);
         }
         if (upperArmL) {
-          upperArmL.rotation.z = -0.55;
+          upperArmL.rotation.z = -0.4;
         }
         if (lowerArmL) {
-          lowerArmL.rotation.x = 0.15;
+          lowerArmL.rotation.x = -0.25;
         }
         if (handL) {
-          handL.rotation.x = 0.1;
+          handL.rotation.x = -0.1;
         }
 
         const fingerNames = [
@@ -474,19 +521,14 @@
           ['rightRingProximal', 'rightRingIntermediate', 'rightRingDistal'],
           ['rightLittleProximal', 'rightLittleIntermediate', 'rightLittleDistal']
         ];
-        const bendTargets = [4, 8, 12, 16, 20];
         fingerNames.forEach((chain, index) => {
-          const tip = pose[bendTargets[index]] || wrist;
-          const openness = clamp(
-            (Math.abs((tip[0] ?? 0) - (wrist[0] ?? 0)) +
-              Math.abs((tip[1] ?? 0) - (wrist[1] ?? 0))) * 1.7,
-            0,
-            1.2
-          );
-          const bend = THREE.MathUtils.mapLinear(openness, 0, 1.2, 0.1, 1.1);
+          const bend = preset[index];
           chain.forEach((boneName, segment) => {
             const bone = getAvatarBone(boneName);
-            if (bone) bone.rotation.x = -bend * (segment === 0 ? 0.65 : 0.45);
+            if (bone) {
+              bone.rotation.x = -bend * (segment === 0 ? 0.72 : 0.48);
+              bone.rotation.z = index === 0 ? -0.25 : (index - 2) * 0.025;
+            }
           });
         });
 
@@ -502,8 +544,8 @@
         loadedAvatar = vrm;
         loadedAvatarBones = new Map();
         loadedAvatar.scene.rotation.y = Math.PI;
-        loadedAvatar.scene.position.set(0, -3.05, 0);
-        loadedAvatar.scene.scale.setScalar(3.2);
+        loadedAvatar.scene.position.set(0, -2.05, 0);
+        loadedAvatar.scene.scale.setScalar(2.2);
         scene.add(loadedAvatar.scene);
         avatar.visible = false;
         status.textContent = '3D avatar loaded. Playing sign poses on the humanoid rig.';
@@ -584,6 +626,7 @@
           return;
         }
 
+        activeLetter = key;
         targetPose = poses[key];
         status.textContent = `Playing letter: ${key}`;
       }
@@ -595,24 +638,28 @@
           return;
         }
 
+        if (playbackTimer) clearInterval(playbackTimer);
         let index = 0;
         status.textContent = `Playing: ${symbols.join(' ')}`;
 
-        const interval = setInterval(() => {
+        playbackTimer = setInterval(() => {
           if (index >= symbols.length) {
-            clearInterval(interval);
+            clearInterval(playbackTimer);
+            playbackTimer = null;
+            activeLetter = null;
             status.textContent = 'Playback complete.';
             return;
           }
 
           const ch = symbols[index];
           if (ch === ' ') {
+            activeLetter = null;
             targetPose = makeNeutralPose();
           } else {
             setTargetForLetter(ch);
           }
           index += 1;
-        }, 700);
+        }, 1050);
       }
 
       playButton.addEventListener('click', () => {
@@ -623,6 +670,18 @@
       });
 
       avatarInput.addEventListener('change', () => loadAvatarFile(avatarInput.files?.[0]));
+
+      async function loadConfiguredAvatar() {
+        try {
+          const response = await fetch('/api/avatar');
+          if (!response.ok) throw new Error('Configured avatar is unavailable');
+          const blob = await response.blob();
+          loadAvatarFile(new File([blob], 'model.vrm', { type: 'model/gltf-binary' }));
+        } catch (error) {
+          status.textContent = 'Waiting for a VRM avatar. Use Load 3D avatar or check D:\\model.vrm.';
+          console.warn(error);
+        }
+      }
 
       const viewerWrap = document.querySelector('.viewer-wrap');
       viewerWrap.addEventListener('dragover', (event) => {
@@ -645,6 +704,7 @@
 
       window.addEventListener('resize', onResize);
       loadPoses();
+      loadConfiguredAvatar();
       animate();
     </script>
   </body>
