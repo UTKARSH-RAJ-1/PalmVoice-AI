@@ -23,9 +23,13 @@
         --text: #fff8ed;
         --soft: #dfc9dc;
         --line: rgba(255, 177, 76, 0.24);
+        --line-strong: rgba(255, 177, 76, 0.46);
+        --surface: rgba(255, 255, 255, 0.06);
       }
 
       * { box-sizing: border-box; }
+
+      html { scroll-behavior: smooth; }
 
       body {
         margin: 0;
@@ -37,7 +41,10 @@
           linear-gradient(135deg, #080617 0%, #130724 50%, #240b35 100%);
         color: var(--text);
         font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        line-height: 1.5;
       }
+
+      ::selection { background: rgba(255, 176, 0, 0.35); color: var(--text); }
 
       .app {
         max-width: 1240px;
@@ -72,6 +79,29 @@
         color: var(--accent);
         font-size: 1.1rem;
         box-shadow: 0 0 24px rgba(255, 74, 80, 0.4);
+      }
+
+      .header-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border: 1px solid rgba(195, 155, 255, 0.3);
+        border-radius: 999px;
+        color: var(--soft);
+        background: rgba(255, 255, 255, 0.04);
+        font-size: 0.75rem;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .header-badge::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #6df0ad;
+        box-shadow: 0 0 12px rgba(109, 240, 173, 0.8);
       }
 
       .nav {
@@ -171,6 +201,12 @@
 
       .hero #viewer {
         height: 100%;
+        opacity: 0;
+        transition: opacity 220ms ease;
+      }
+
+      .hero #viewer.is-ready {
+        opacity: 1;
       }
 
       .hero .hero-copy { position: relative; z-index: 2; }
@@ -188,6 +224,18 @@
         font-size: 0.92rem;
         font-weight: 800;
         cursor: pointer;
+        transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background 160ms ease;
+      }
+
+      .primary-action:hover, .secondary-action:hover, .controls button:hover, .upload-button:hover {
+        transform: translateY(-2px);
+      }
+
+      .primary-action:focus-visible, .secondary-action:focus-visible,
+      .controls button:focus-visible, .upload-button:focus-within,
+      input:focus-visible, .nav a:focus-visible {
+        outline: 3px solid rgba(255, 191, 24, 0.65);
+        outline-offset: 3px;
       }
 
       .primary-action {
@@ -284,7 +332,11 @@
         background: rgba(4, 7, 28, 0.72);
         color: var(--text);
         border: 1px solid var(--line);
+        transition: border-color 160ms ease, box-shadow 160ms ease;
       }
+
+      input::placeholder { color: rgba(223, 201, 220, 0.58); }
+      input:focus { border-color: var(--line-strong); box-shadow: 0 0 0 4px rgba(255, 176, 0, 0.1); outline: none; }
 
       .controls button {
         padding: 15px 22px;
@@ -319,12 +371,35 @@
         background: rgba(255,255,255,0.04);
         padding: 16px;
       }
+      .camera-card { background: rgba(255,255,255,0.055); }
+      .output-card { display: flex; flex-direction: column; justify-content: center; min-height: 100%; }
+      .card-topline { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 12px; }
+      .card-topline .eyebrow { margin: 0; }
+      .live-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--soft);
+        font-size: 0.7rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .live-pill::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: rgba(223, 201, 220, 0.55);
+      }
+      .live-pill.is-live::before { background: #ff5f73; box-shadow: 0 0 12px rgba(255, 95, 115, 0.9); }
       .camera-stage {
         position: relative;
         overflow: hidden;
         min-height: 280px;
         border-radius: 14px;
         background: #090b12;
+        border: 1px solid rgba(195, 155, 255, 0.14);
       }
       #cameraVideo {
         display: block;
@@ -354,6 +429,7 @@
         font-weight: 800;
         color: var(--accent);
         min-height: 1em;
+        text-shadow: 0 0 36px rgba(255, 176, 0, 0.25);
       }
       .sequence {
         min-height: 48px;
@@ -390,6 +466,17 @@
         font-size: 0.86rem;
       }
 
+      .status[role="status"] { display: flex; align-items: center; gap: 8px; }
+      .status[role="status"]::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        flex: 0 0 auto;
+        border-radius: 50%;
+        background: currentColor;
+        box-shadow: 0 0 10px currentColor;
+      }
+
       .help {
         color: var(--soft);
         font-size: 0.86rem;
@@ -421,6 +508,16 @@
         .topbar { padding-bottom: 18px; }
         .nav { display: none; }
         .header { padding: 18px 20px; }
+        .header-badge { display: none; }
+        .hero-copy { padding-inline: 20px; }
+        .section { padding-inline: 20px; }
+        .hero-actions, .camera-actions { align-items: stretch; flex-direction: column; }
+        .hero-actions button, .camera-actions button { width: 100%; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+        *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
       }
     </style>
   </head>
@@ -440,6 +537,7 @@
             <p class="eyebrow">AI Sign Language Avatar</p>
             <h1>Sign language, <span class="gradient-text">brought to life.</span></h1>
           </div>
+          <div class="header-badge">Local-first demo</div>
         </div>
 
         <div class="hero">
@@ -467,7 +565,7 @@
           </div>
           <div class="control-panel">
             <div class="controls">
-              <input id="textInput" value="HELLO" aria-label="Text to sign" />
+              <input id="textInput" value="HELLO" placeholder="Type a word or phrase" aria-label="Text to sign" />
               <button id="playButton" type="button">Play sign</button>
               <label class="upload-button">
                 Load 3D avatar
@@ -489,6 +587,10 @@
           </div>
           <div class="translator-panel">
             <div class="camera-card">
+              <div class="card-topline">
+                <p class="eyebrow">Camera preview</p>
+                <span id="cameraLivePill" class="live-pill">Offline</span>
+              </div>
               <div class="camera-stage">
                 <video id="cameraVideo" autoplay muted playsinline hidden></video>
                 <div id="cameraPlaceholder" class="camera-placeholder">Allow camera access to start live recognition.</div>
@@ -500,7 +602,10 @@
               <div id="cameraStatus" class="status" role="status">Camera is off.</div>
             </div>
             <div class="output-card">
-              <p class="eyebrow">Detected letter</p>
+              <div class="card-topline">
+                <p class="eyebrow">Detected letter</p>
+                <span aria-hidden="true">01</span>
+              </div>
               <div id="detectedLetter" class="detected-letter" aria-live="polite">—</div>
               <p class="eyebrow">Sequence</p>
               <div id="detectedSequence" class="sequence" aria-live="polite">Nothing detected yet.</div>
@@ -579,6 +684,7 @@
       const startCameraButton = document.getElementById('startCameraButton');
       const stopCameraButton = document.getElementById('stopCameraButton');
       const cameraStatus = document.getElementById('cameraStatus');
+      const cameraLivePill = document.getElementById('cameraLivePill');
       const detectedLetter = document.getElementById('detectedLetter');
       const detectedSequence = document.getElementById('detectedSequence');
       const clearSequenceButton = document.getElementById('clearSequenceButton');
@@ -959,6 +1065,7 @@
         loadedAvatar.scene.scale.setScalar(2.2);
         scene.add(loadedAvatar.scene);
         avatar.visible = false;
+        viewer.classList.add('is-ready');
         status.textContent = '3D avatar loaded. Playing sign poses on the humanoid rig.';
       }
 
@@ -1150,6 +1257,8 @@
           cameraPlaceholder.hidden = true;
           startCameraButton.disabled = true;
           stopCameraButton.disabled = false;
+          cameraLivePill.textContent = 'Live';
+          cameraLivePill.classList.add('is-live');
           cameraStatus.textContent = 'Camera ready. Hold a letter steady for a moment.';
           cameraTimer = setInterval(sampleCameraFrame, 650);
         } catch (error) {
@@ -1167,6 +1276,8 @@
         cameraPlaceholder.hidden = false;
         startCameraButton.disabled = false;
         stopCameraButton.disabled = true;
+        cameraLivePill.textContent = 'Offline';
+        cameraLivePill.classList.remove('is-live');
         cameraStatus.textContent = 'Camera is off.';
       }
 
@@ -1194,6 +1305,8 @@
           const blob = await response.blob();
           loadAvatarFile(new File([blob], 'model.vrm', { type: 'model/gltf-binary' }));
         } catch (error) {
+          avatar.visible = true;
+          viewer.classList.add('is-ready');
           status.textContent = 'Waiting for a VRM avatar. Use Load 3D avatar or check D:\\model.vrm.';
           console.warn(error);
         }
