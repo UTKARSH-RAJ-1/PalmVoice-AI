@@ -307,6 +307,64 @@
       .upload-button input {
         display: none;
       }
+      .translator-panel {
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(260px, 0.8fr);
+        gap: 18px;
+        align-items: stretch;
+      }
+      .camera-card, .output-card {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255,255,255,0.04);
+        padding: 16px;
+      }
+      .camera-stage {
+        position: relative;
+        overflow: hidden;
+        min-height: 280px;
+        border-radius: 14px;
+        background: #090b12;
+      }
+      #cameraVideo {
+        display: block;
+        width: 100%;
+        min-height: 280px;
+        object-fit: cover;
+        transform: scaleX(-1);
+      }
+      .camera-placeholder {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        color: var(--soft);
+        text-align: center;
+      }
+      .camera-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 12px;
+        flex-wrap: wrap;
+      }
+      .detected-letter {
+        font-size: clamp(4rem, 12vw, 8rem);
+        line-height: 1;
+        font-weight: 800;
+        color: var(--accent);
+        min-height: 1em;
+      }
+      .sequence {
+        min-height: 48px;
+        margin: 12px 0;
+        font-size: 1.5rem;
+        letter-spacing: .12em;
+        overflow-wrap: anywhere;
+      }
+      @media (max-width: 760px) {
+        .translator-panel { grid-template-columns: 1fr; }
+      }
 
       .drop-hint {
         position: absolute;
@@ -421,6 +479,39 @@
           <p class="help">The bundled avatar is loaded from <code>assets/avatar.vrm</code>. Set <code>PALMVOICE_VRM_PATH</code> to use another licensed VRM.</p>
         </section>
 
+        <section class="section" id="live-translator">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Sign to text</p>
+              <h2>Translate live.</h2>
+            </div>
+            <p>Camera frames stay on this Flask app and are sampled for static ASL alphabet recognition.</p>
+          </div>
+          <div class="translator-panel">
+            <div class="camera-card">
+              <div class="camera-stage">
+                <video id="cameraVideo" autoplay muted playsinline hidden></video>
+                <div id="cameraPlaceholder" class="camera-placeholder">Allow camera access to start live recognition.</div>
+              </div>
+              <div class="camera-actions">
+                <button id="startCameraButton" class="primary-action" type="button">Start camera</button>
+                <button id="stopCameraButton" class="secondary-action" type="button" disabled>Stop camera</button>
+              </div>
+              <div id="cameraStatus" class="status" role="status">Camera is off.</div>
+            </div>
+            <div class="output-card">
+              <p class="eyebrow">Detected letter</p>
+              <div id="detectedLetter" class="detected-letter" aria-live="polite">—</div>
+              <p class="eyebrow">Sequence</p>
+              <div id="detectedSequence" class="sequence" aria-live="polite">Nothing detected yet.</div>
+              <div class="camera-actions">
+                <button id="clearSequenceButton" class="secondary-action" type="button">Clear sequence</button>
+                <button id="speakSequenceButton" class="secondary-action" type="button">Speak sequence</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section class="section" id="how-it-works">
           <div class="section-heading">
             <div>
@@ -483,11 +574,28 @@
       const playButton = document.getElementById('playButton');
       const avatarInput = document.getElementById('avatarInput');
       const viewer = document.getElementById('viewer');
+      const cameraVideo = document.getElementById('cameraVideo');
+      const cameraPlaceholder = document.getElementById('cameraPlaceholder');
+      const startCameraButton = document.getElementById('startCameraButton');
+      const stopCameraButton = document.getElementById('stopCameraButton');
+      const cameraStatus = document.getElementById('cameraStatus');
+      const detectedLetter = document.getElementById('detectedLetter');
+      const detectedSequence = document.getElementById('detectedSequence');
+      const clearSequenceButton = document.getElementById('clearSequenceButton');
+      const speakSequenceButton = document.getElementById('speakSequenceButton');
 
       let poses = {};
       let currentPose = [];
       let targetPose = [];
       let loadedAvatar = null;
+      let cameraStream = null;
+      let cameraTimer = null;
+      let cameraBusy = false;
+      let sequence = '';
+      let candidateLetter = '';
+      let candidateFrames = 0;
+      let lastLockedLetter = '';
+      let cameraCanvas = document.createElement('canvas');
       let loadedAvatarBones = new Map();
       let activeLetter = null;
       let playbackTimer = null;
@@ -973,6 +1081,111 @@
       });
 
       avatarInput.addEventListener('change', () => loadAvatarFile(avatarInput.files?.[0]));
+
+      function updateSequence() {
+        detectedSequence.textContent = sequence || 'Nothing detected yet.';
+      }
+
+      function lockCandidate(label) {
+        if (!label) {
+          candidateLetter = '';
+          candidateFrames = 0;
+          return;
+        }
+        if (label === candidateLetter) candidateFrames += 1;
+        else {
+          candidateLetter = label;
+          candidateFrames = 1;
+        }
+        if (candidateFrames >= 3 && label !== lastLockedLetter) {
+          sequence += label;
+          lastLockedLetter = label;
+          updateSequence();
+        }
+      }
+
+      async function sampleCameraFrame() {
+        if (!cameraStream || cameraBusy || cameraVideo.readyState < 2) return;
+        cameraBusy = true;
+        try {
+          const width = 480;
+          const height = Math.round(width * cameraVideo.videoHeight / cameraVideo.videoWidth);
+          cameraCanvas.width = width;
+          cameraCanvas.height = height || 360;
+          cameraCanvas.getContext('2d').drawImage(cameraVideo, 0, 0, cameraCanvas.width, cameraCanvas.height);
+          const blob = await new Promise((resolve) => cameraCanvas.toBlob(resolve, 'image/jpeg', 0.72));
+          const body = new FormData();
+          body.append('frame', blob, 'camera.jpg');
+          const response = await fetch('/api/recognize', { method: 'POST', body });
+          const result = await response.json();
+          if (!response.ok) throw new Error(result.error || 'Recognition failed');
+          if (result.detected) {
+            detectedLetter.textContent = result.label;
+            cameraStatus.textContent = `Recognized ${result.label} (${Math.round(result.confidence * 100)}%)`;
+            lockCandidate(result.label);
+          } else {
+            detectedLetter.textContent = '—';
+            cameraStatus.textContent = 'Show one hand to the camera.';
+            lockCandidate('');
+          }
+        } catch (error) {
+          cameraStatus.textContent = error.message || 'Recognition unavailable.';
+        } finally {
+          cameraBusy = false;
+        }
+      }
+
+      async function startCamera() {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          cameraStatus.textContent = 'This browser does not support camera access.';
+          return;
+        }
+        try {
+          cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+            audio: false,
+          });
+          cameraVideo.srcObject = cameraStream;
+          cameraVideo.hidden = false;
+          cameraPlaceholder.hidden = true;
+          startCameraButton.disabled = true;
+          stopCameraButton.disabled = false;
+          cameraStatus.textContent = 'Camera ready. Hold a letter steady for a moment.';
+          cameraTimer = setInterval(sampleCameraFrame, 650);
+        } catch (error) {
+          cameraStatus.textContent = 'Camera permission was denied or no camera is available.';
+        }
+      }
+
+      function stopCamera() {
+        if (cameraTimer) clearInterval(cameraTimer);
+        cameraTimer = null;
+        cameraStream?.getTracks().forEach((track) => track.stop());
+        cameraStream = null;
+        cameraVideo.srcObject = null;
+        cameraVideo.hidden = true;
+        cameraPlaceholder.hidden = false;
+        startCameraButton.disabled = false;
+        stopCameraButton.disabled = true;
+        cameraStatus.textContent = 'Camera is off.';
+      }
+
+      startCameraButton.addEventListener('click', startCamera);
+      stopCameraButton.addEventListener('click', stopCamera);
+      clearSequenceButton.addEventListener('click', () => {
+        sequence = '';
+        lastLockedLetter = '';
+        candidateLetter = '';
+        candidateFrames = 0;
+        updateSequence();
+      });
+      speakSequenceButton.addEventListener('click', () => {
+        if (sequence && 'speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(new SpeechSynthesisUtterance(sequence));
+        }
+      });
+      window.addEventListener('beforeunload', stopCamera);
 
       async function loadConfiguredAvatar() {
         try {
